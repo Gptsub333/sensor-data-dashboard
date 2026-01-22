@@ -115,7 +115,7 @@ export default function SensorDashboard() {
     try {
       const encodedName = encodeURIComponent(classroom.classroom);
       const recommendationsRes = await fetch(
-        `http://44.222.114.155/api/get-classroom-recommendation/${encodedName}`
+        `${API_BASE}/api/get-classroom-recommendation/${encodedName}`
       );
 
       if (!recommendationsRes.ok) {

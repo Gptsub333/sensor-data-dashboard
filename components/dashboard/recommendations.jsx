@@ -62,8 +62,9 @@ export function Recommendations({ recommendations, isLoading, classroom, error }
 
   if (!recommendations) return null;
 
-  // Check if this is the new API format with llm_summary
-  const isNewFormat = recommendations.llm_summary !== undefined;
+  // Check which API format we have
+  const hasAnalysis = recommendations.analysis !== undefined;
+  const hasLLMSummary = recommendations.llm_summary !== undefined;
 
   return (
     <Card className="border border-border hover:shadow-lg transition-all duration-300 overflow-hidden">
@@ -84,8 +85,96 @@ export function Recommendations({ recommendations, isLoading, classroom, error }
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        {/* Handle new API format */}
-        {isNewFormat ? (
+        {/* Handle new analysis format */}
+        {hasAnalysis ? (
+          <>
+            {/* Analysis Header */}
+            <div className="mb-6 bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-primary" />
+                    {recommendations.analysis.primary_issue}
+                  </h3>
+                  <div className="flex flex-wrap gap-3 mt-3">
+                    <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-lg border border-border">
+                      <span className="text-xs text-muted-foreground">Trend:</span>
+                      <span className="text-xs font-semibold text-foreground">{recommendations.analysis.trend}</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-lg border border-border">
+                      <span className="text-xs text-muted-foreground">Confidence:</span>
+                      <span className="text-xs font-semibold text-primary">{recommendations.analysis.assurance_percentage}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className={`
+                  inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm border-2 self-start
+                  ${recommendations.analysis.severity === "High" || recommendations.analysis.severity === "high"
+                    ? "bg-red-50 dark:bg-red-950/30 border-red-500 text-red-700 dark:text-red-400"
+                    : recommendations.analysis.severity === "Medium" || recommendations.analysis.severity === "medium"
+                      ? "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-500 text-yellow-700 dark:text-yellow-400"
+                      : "bg-green-50 dark:bg-green-950/30 border-green-500 text-green-700 dark:text-green-400"
+                  }
+                `}>
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Severity: {recommendations.analysis.severity.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Probable Reasons and Recommended Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Probable Reasons */}
+              {recommendations.probable_reasons && recommendations.probable_reasons.length > 0 && (
+                <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
+                  <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
+                    <div className="w-1 h-5 bg-primary rounded-full"></div>
+                    Probable Reasons
+                  </h4>
+                  <div className="space-y-3">
+                    {recommendations.probable_reasons.map((reason, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="flex-shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary group-hover:scale-110 transition-transform">
+                            {index + 1}
+                          </span>
+                          <p className="text-sm text-foreground">{reason}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Actions */}
+              {recommendations.recommended_actions && recommendations.recommended_actions.length > 0 && (
+                <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
+                  <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
+                    <div className="w-1 h-5 bg-primary rounded-full"></div>
+                    Recommended Actions
+                  </h4>
+                  <div className="space-y-3">
+                    {recommendations.recommended_actions.map((action, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
+                      >
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                          <p className="text-sm text-foreground">{action}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : hasLLMSummary ? (
+          /* Handle LLM summary format */
           <>
             {/* Classroom Name */}
             <div className="mb-4 pb-4 border-b border-border">
@@ -202,101 +291,103 @@ export function Recommendations({ recommendations, isLoading, classroom, error }
               </div>
             )}
           </>
-        ) : (
-          /* Original format for fallback */
+        ) : recommendations.severity === "healthy" ? (
+          /* Healthy status */
+          <div className="flex items-center gap-3 p-4 sm:p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border-2 border-green-200 dark:border-green-800 shadow-lg">
+            <div className="p-2 bg-green-500/20 rounded-full">
+              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <p className="text-green-800 dark:text-green-200 font-medium">{recommendations.message}</p>
+          </div>
+        ) : recommendations.alerts ? (
+          /* Original format with alerts */
           <>
-            {recommendations.severity === "healthy" ? (
-              <div className="flex items-center gap-3 p-4 sm:p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border-2 border-green-200 dark:border-green-800 shadow-lg">
-                <div className="p-2 bg-green-500/20 rounded-full">
-                  <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            {/* Critical Alerts */}
+            {recommendations.alerts && recommendations.alerts.length > 0 && (
+              <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30 p-4 sm:p-6 rounded-xl border-2 border-red-200 dark:border-red-800 shadow-lg">
+                <h3 className="text-lg sm:text-xl font-bold mb-4 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <span className="text-red-700 dark:text-red-300">Critical Alerts</span>
+                </h3>
+                <div className="space-y-2">
+                  {recommendations.alerts?.map((alert, index) => (
+                    <div key={index} className="flex items-start gap-2 bg-background/50 backdrop-blur-sm p-3 rounded-lg">
+                      <Info className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-foreground">{alert}</p>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-green-800 dark:text-green-200 font-medium">{recommendations.message}</p>
               </div>
-            ) : (
-              <>
-                {/* Critical Alerts */}
-                {recommendations.alerts && recommendations.alerts.length > 0 && (
-                  <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30 p-4 sm:p-6 rounded-xl border-2 border-red-200 dark:border-red-800 shadow-lg">
-                    <h3 className="text-lg sm:text-xl font-bold mb-4 flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                      <span className="text-red-700 dark:text-red-300">Critical Alerts</span>
-                    </h3>
-                    <div className="space-y-2">
-                      {recommendations.alerts?.map((alert, index) => (
-                        <div key={index} className="flex items-start gap-2 bg-background/50 backdrop-blur-sm p-3 rounded-lg">
-                          <Info className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-sm text-foreground">{alert}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            )}
 
-                {/* Reasons and Recommendations Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Key Reasons */}
-                  <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
-                    <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
-                      <div className="w-1 h-5 bg-primary rounded-full"></div>
-                      Key Reasons
-                    </h4>
-                    <div className="space-y-3">
-                      {recommendations.reasons.map((reason, index) => (
-                        <div
-                          key={index}
-                          className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
-                        >
-                          <div className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary group-hover:scale-110 transition-transform">
-                              {index + 1}
-                            </span>
-                            <p className="text-sm text-foreground">{reason}</p>
-                          </div>
-                        </div>
-                      ))}
+            {/* Reasons and Recommendations Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Key Reasons */}
+              <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
+                <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
+                  <div className="w-1 h-5 bg-primary rounded-full"></div>
+                  Key Reasons
+                </h4>
+                <div className="space-y-3">
+                  {recommendations.reasons.map((reason, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="flex-shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary group-hover:scale-110 transition-transform">
+                          {index + 1}
+                        </span>
+                        <p className="text-sm text-foreground">{reason}</p>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Key Recommendations */}
-                  <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
-                    <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
-                      <div className="w-1 h-5 bg-primary rounded-full"></div>
-                      Key Recommendations
-                    </h4>
-                    <div className="space-y-3">
-                      {recommendations.recommendations.map((rec, index) => (
-                        <div
-                          key={index}
-                          className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
-                        >
-                          <div className="flex items-start gap-2">
-                            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                            <p className="text-sm text-foreground">{rec}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
                 </div>
+              </div>
 
-                {/* Severity Badge */}
-                <div className="mt-6 flex items-center justify-center">
-                  <div className={`
+              {/* Key Recommendations */}
+              <div className="bg-muted/50 p-4 sm:p-6 rounded-xl border border-border">
+                <h4 className="font-bold mb-4 flex items-center gap-2 text-base sm:text-lg">
+                  <div className="w-1 h-5 bg-primary rounded-full"></div>
+                  Key Recommendations
+                </h4>
+                <div className="space-y-3">
+                  {recommendations.recommendations.map((rec, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-background rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all group"
+                    >
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                        <p className="text-sm text-foreground">{rec}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Severity Badge */}
+            <div className="mt-6 flex items-center justify-center">
+              <div className={`
                 inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm border-2
                 ${recommendations.severity === "high"
-                      ? "bg-red-50 dark:bg-red-950/30 border-red-500 text-red-700 dark:text-red-400"
-                      : recommendations.severity === "medium"
-                        ? "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-500 text-yellow-700 dark:text-yellow-400"
-                        : "bg-green-50 dark:bg-green-950/30 border-green-500 text-green-700 dark:text-green-400"
-                    }
+                  ? "bg-red-50 dark:bg-red-950/30 border-red-500 text-red-700 dark:text-red-400"
+                  : recommendations.severity === "medium"
+                    ? "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-500 text-yellow-700 dark:text-yellow-400"
+                    : "bg-green-50 dark:bg-green-950/30 border-green-500 text-green-700 dark:text-green-400"
+                }
               `}>
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Severity: {recommendations.severity.toUpperCase()}</span>
-                  </div>
-                </div>
-              </>
-            )}
+                <AlertTriangle className="h-4 w-4" />
+                <span>Severity: {recommendations.severity.toUpperCase()}</span>
+              </div>
+            </div>
           </>
+        ) : (
+          /* No data available */
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">No recommendation data available</p>
+          </div>
         )}
       </CardContent>
     </Card>
