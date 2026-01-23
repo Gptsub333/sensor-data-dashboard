@@ -1,14 +1,62 @@
 "use client";
 
-import { Building2, ChevronRight, Thermometer } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Building2, ChevronRight, Thermometer, GripVertical } from "lucide-react";
 import { getHealthStatus, getStatusColor } from "@/lib/sensor-utils";
 
 export function ClassroomSidebar({ classrooms, selectedClassroom, onClassroomSelect, isOpen }) {
+  const [sidebarWidth, setSidebarWidth] = useState(320); // Default 320px (w-80)
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef(null);
+
+  const startResizing = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (e) => {
+      if (isResizing) {
+        const newWidth = e.clientX;
+        // Set min width to 250px and max width to 600px
+        if (newWidth >= 250 && newWidth <= 600) {
+          setSidebarWidth(newWidth);
+        }
+      }
+    },
+    [isResizing]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "ew-resize";
+      document.body.style.userSelect = "none";
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    };
+  }, [isResizing, resize, stopResizing]);
   return (
     <aside 
+      ref={sidebarRef}
+      style={{ width: `${sidebarWidth}px` }}
       className={`
         fixed lg:static inset-y-0 left-0 z-40
-        w-80 h-screen bg-background/95 backdrop-blur-md 
+        h-screen bg-background/95 backdrop-blur-md 
         border-r border-border 
         overflow-hidden
         transition-transform duration-300 ease-in-out
@@ -17,17 +65,35 @@ export function ClassroomSidebar({ classrooms, selectedClassroom, onClassroomSel
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
     >
+      {/* Resize Handle */}
+      <div
+        onMouseDown={startResizing}
+        className={`
+          hidden lg:block absolute top-0 right-0 w-1 h-full cursor-ew-resize
+          hover:bg-primary transition-colors group
+          ${isResizing ? 'bg-primary' : 'bg-transparent'}
+        `}
+      >
+        <div className="absolute top-1/2 right-0 transform translate-x-1/2 -translate-y-1/2">
+          <div className="bg-background border border-border rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+      {/* Header */}
       <div className="p-6 border-b border-border bg-background flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
             <Building2 className="h-6 w-6 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-foreground">Classrooms</h1>
             <p className="text-xs text-muted-foreground">{classrooms.length} rooms monitored</p>
           </div>
         </div>
       </div>
+
+      {/* Classroom List */}
       <div className="p-3 space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
         {classrooms.map((classroom) => {
           const status = getHealthStatus(classroom);
@@ -54,9 +120,10 @@ export function ClassroomSidebar({ classrooms, selectedClassroom, onClassroomSel
                 ></span>
                 <div className="flex flex-col items-start flex-1 min-w-0">
                   <span
-                    className={`text-sm truncate w-full text-left ${
+                    className={`text-sm w-full text-left break-words ${
                       isSelected ? "font-semibold text-primary" : "text-foreground group-hover:text-primary"
                     }`}
+                    title={classroom.classroom}
                   >
                     {classroom.classroom}
                   </span>

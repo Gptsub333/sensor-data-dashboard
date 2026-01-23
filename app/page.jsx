@@ -6,6 +6,7 @@ import { ClassroomSidebar } from "@/components/dashboard/classroom-sidebar";
 import { BuildingHeader } from "@/components/dashboard/building-header";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { OutdoorConditionsCard, IndoorConditionsCard } from "@/components/dashboard/conditions-card";
+import { ClassroomConditionsCard } from "@/components/dashboard/classroom-conditions-card";
 import { SensorChart } from "@/components/dashboard/sensor-chart";
 import { Recommendations } from "@/components/dashboard/recommendations";
 import { Feedback } from "@/components/dashboard/feedback";
@@ -28,9 +29,12 @@ export default function SensorDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [recommendations, setRecommendations] = useState(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [selectedClassroomData, setSelectedClassroomData] = useState(null);
+  const [classroomDataLoading, setClassroomDataLoading] = useState(false);
   const [error, setError] = useState(null);
   const [chartError, setChartError] = useState(null);
   const [recommendationsError, setRecommendationsError] = useState(null);
+  const [classroomDataError, setClassroomDataError] = useState(null);
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -89,8 +93,10 @@ export default function SensorDashboard() {
     setSelectedClassroom(classroom);
     setChartLoading(true);
     setRecommendationsLoading(true);
+    setClassroomDataLoading(true);
     setChartError(null);
     setRecommendationsError(null);
+    setClassroomDataError(null);
 
     // Fetch chart data
     try {
@@ -131,6 +137,27 @@ export default function SensorDashboard() {
     } finally {
       setRecommendationsLoading(false);
     }
+
+    // Fetch individual classroom data
+    try {
+      const encodedName = encodeURIComponent(classroom.classroom);
+      const classroomDataRes = await fetch(
+        `http://44.222.114.155/api/classroom-latest/${encodedName}`
+      );
+
+      if (!classroomDataRes.ok) {
+        throw new Error(`Failed to fetch classroom data: ${classroomDataRes.status} ${classroomDataRes.statusText}`);
+      }
+
+      const classroomData = await classroomDataRes.json();
+      setSelectedClassroomData(classroomData);
+    } catch (error) {
+      console.error("Classroom Data API Error:", error);
+      setClassroomDataError(error.message || "Failed to load classroom data. Please try again.");
+      setSelectedClassroomData(null);
+    } finally {
+      setClassroomDataLoading(false);
+    }
   }
 
   function toggleSensor(sensorKey) {
@@ -141,8 +168,7 @@ export default function SensorDashboard() {
     );
   }
 
-  const healthyCount = classrooms.filter((c) => getHealthStatus(c) === "healthy").length;
-  const attentionCount = classrooms.length - healthyCount;
+  // Stats are now calculated within StatsCards component
 
   if (loading) {
     return <LoadingSpinner />;
@@ -212,15 +238,19 @@ export default function SensorDashboard() {
         <div className="max-w-7xl mx-auto">
           <BuildingHeader lastUpdated={indoorAverage?.last_updated} />
 
-          <StatsCards
-            totalClassrooms={classrooms.length}
-            healthyCount={healthyCount}
-            attentionCount={attentionCount}
-          />
+          <StatsCards totalClassrooms={classrooms.length} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <OutdoorConditionsCard data={outdoorData} />
-            <IndoorConditionsCard data={indoorAverage} />
+            {selectedClassroom ? (
+              <ClassroomConditionsCard 
+                data={selectedClassroomData} 
+                isLoading={classroomDataLoading}
+                error={classroomDataError}
+              />
+            ) : (
+              <IndoorConditionsCard data={indoorAverage} />
+            )}
           </div>
 
           <SensorChart

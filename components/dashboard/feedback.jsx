@@ -1,23 +1,22 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, CheckCircle2, Loader2, AlertCircle, Star } from "lucide-react";
 import { useState } from "react";
 
 const FEEDBACK_OPTIONS = [
-  { value: "outdoor_conditions", label: "Outdoor Conditions" },
-  { value: "outdoor_temperature", label: "Outdoor Temperature" },
-  { value: "more_occupancy", label: "More Occupancy" },
-  { value: "indoor_system_failure", label: "Indoor System failure" },
-  { value: "window_opened", label: "Window opened" },
-  { value: "empty_rooms", label: "Empty Rooms" },
+  { value: "Outdoor Conditions", label: "Outdoor Conditions" },
+  { value: "Outdoor Temperature", label: "Outdoor Temperature" },
+  { value: "More Occupancy", label: "More Occupancy" },
+  { value: "Indoor System failure", label: "Indoor System failure" },
+  { value: "Window opened", label: "Window opened" },
+  { value: "Empty Rooms", label: "Empty Rooms" },
 ];
 
 export function Feedback({ classroom }) {
-  const [selection, setSelection] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState([]);
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -25,9 +24,22 @@ export function Feedback({ classroom }) {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
+  const handleOptionToggle = (optionValue) => {
+    setSelectedOptions((prev) =>
+      prev.includes(optionValue)
+        ? prev.filter((val) => val !== optionValue)
+        : [...prev, optionValue]
+    );
+  };
+
   const handleSubmit = async () => {
-    if (!selection || !message.trim()) {
-      setSubmitError("Please select a category and enter a message.");
+    if (selectedOptions.length === 0) {
+      setSubmitError("Please select at least one category.");
+      return;
+    }
+
+    if (!message.trim()) {
+      setSubmitError("Please enter a message.");
       return;
     }
 
@@ -48,14 +60,15 @@ export function Feedback({ classroom }) {
     const payload = {
       classroom: classroom.classroom,
       rating: rating,
-      feedback_text: `${selection}: ${message}`,
+      feedback_text: message,
       submitted_by: "user",
+      selected_options: selectedOptions,
     };
 
     console.log("Submitting feedback:", payload);
 
     try {
-      const response = await fetch("http://44.210.86.189/submit-feedback", {
+      const response = await fetch("http://44.210.86.189/api/submit-feedback", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -77,10 +90,14 @@ export function Feedback({ classroom }) {
       console.log("Feedback submitted successfully:", data);
 
       
-      setSubmitSuccess(true);
-      setSelection("");
-      setMessage("");
-      setRating(0);
+      if (data.ok) {
+        setSubmitSuccess(true);
+        setSelectedOptions([]);
+        setMessage("");
+        setRating(0);
+      } else {
+        throw new Error("Server returned ok:false");
+      }
 
       // Reset success message after 3 seconds
       setTimeout(() => {
@@ -169,21 +186,31 @@ export function Feedback({ classroom }) {
               </div>
             </div>
 
-            {/* Selection Dropdown */}
+            {/* Selection Checkboxes */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Selection</label>
-              <Select value={selection} onValueChange={setSelection}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {FEEDBACK_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.label}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium text-foreground">Selection (Choose one or more)</label>
+              <div className="bg-muted/30 p-4 rounded-lg border border-border space-y-3">
+                {FEEDBACK_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedOptions.includes(option.value)}
+                      onChange={() => handleOptionToggle(option.value)}
+                      disabled={isSubmitting}
+                      className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-2 focus:ring-primary cursor-pointer"
+                    />
+                    <span className="text-sm text-foreground">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              {selectedOptions.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {selectedOptions.join(", ")}
+                </p>
+              )}
             </div>
 
             {/* Message Textarea */}
@@ -225,7 +252,7 @@ export function Feedback({ classroom }) {
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || !selection || !message.trim() || rating === 0}
+              disabled={isSubmitting || selectedOptions.length === 0 || !message.trim() || rating === 0}
               className="w-full sm:w-auto px-6"
             >
               {isSubmitting ? (
